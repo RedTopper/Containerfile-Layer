@@ -11,10 +11,10 @@ IMG=localhost/containerfile-layer
 TAG=$(date '+%Y%m%d-%H%M')
 
 echo ">> Building $IMG:$TAG"
-podman build --tag "$IMG:$TAG" --tag "$IMG:latest" .
+podman build --tag "$IMG:$TAG" --tag "$IMG:latest" --pull=always .
+
+echo ">> Rebasing onto $IMG:$TAG"
+bootc switch --transport containers-storage "$IMG:$TAG"
 
 echo ">> Previously built images:"
 buildah images --filter "reference=$IMG"
-
-echo ">> Rebasing onto $IMG:$TAG"
-rpm-ostree rebase "ostree-unverified-image:containers-storage:$IMG:$TAG"
