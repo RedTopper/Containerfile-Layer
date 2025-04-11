@@ -12,3 +12,4 @@ TAG=$(date '+%Y%m%d-%H%M')
 
 podman build --tag "$IMG:$TAG" --tag "$IMG:latest" --pull=always .
 bootc switch --transport containers-storage "$IMG:$TAG"
+rpm-ostree db diff  # Just to see package changes

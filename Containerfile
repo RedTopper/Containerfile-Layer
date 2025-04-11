@@ -24,21 +24,17 @@ RUN --mount=type=cache,dst=/var/cache \
 
 # Add some packages from bazzite, then disable the COPRs so later commands do not use them
 # kylegospo/bazzite -> gamescope-session-plus gamescope-session-steam
-# kylegospo/bazzite-multilib -> gamescope (custom build, needs higher priority than fedora build)
+# kylegospo/bazzite-multilib -> gamescope
 # kylegospo/wallpaper-engine-kde-plugin -> wallpaper-engine-kde-plugin
 RUN --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
-    dnf5 -y copr enable kylegospo/bazzite && \
-    dnf5 -y copr enable kylegospo/bazzite-multilib && \
-    dnf5 -y copr enable kylegospo/wallpaper-engine-kde-plugin && \
-    dnf5 -y config-manager setopt copr:copr.fedorainfracloud.org:kylegospo:bazzite-multilib.priority=98 && \
+    REPOS="kylegospo/bazzite kylegospo/bazzite-multilib kylegospo/wallpaper-engine-kde-plugin"; \
+    for repo in $REPOS; do dnf5 -y copr enable $repo && dnf5 -y config-manager setopt "*${repo////:}.priority=10"; done && \
     dnf5 install -y --setopt=keepcache=1 \
         wallpaper-engine-kde-plugin \
         gamescope gamescope-session-plus gamescope-session-steam && \
-    dnf5 -y copr disable kylegospo/bazzite && \
-    dnf5 -y copr disable kylegospo/bazzite-multilib && \
-    dnf5 -y copr disable kylegospo/wallpaper-engine-kde-plugin && \
+    for repo in $REPOS; do dnf5 -y copr disable $repo; done && \
     ostree container commit
 
 # Install custom local RPMs. Just drop them in the ./rpms folder.
