@@ -1,6 +1,6 @@
-FROM scratch AS rpm
+FROM scratch AS rpms
 
-COPY rpm/* /rpm/
+COPY rpms/* /rpms/
 
 FROM ghcr.io/ublue-os/kinoite-nvidia:41
 
@@ -19,7 +19,8 @@ RUN --mount=type=cache,dst=/var/cache \
         mono-devel python3-pip flatpak-builder \
         qdirstat qterminal \
         zsh && \
-    systemctl enable input-remapper
+    systemctl enable input-remapper && \
+    ostree container commit
 
 # Add some packages from bazzite, then disable the COPRs so later commands do not use them
 # kylegospo/bazzite -> gamescope-session-plus gamescope-session-steam
@@ -37,19 +38,21 @@ RUN --mount=type=cache,dst=/var/cache \
         gamescope gamescope-session-plus gamescope-session-steam && \
     dnf5 -y copr disable kylegospo/bazzite && \
     dnf5 -y copr disable kylegospo/bazzite-multilib && \
-    dnf5 -y copr disable kylegospo/wallpaper-engine-kde-plugin
+    dnf5 -y copr disable kylegospo/wallpaper-engine-kde-plugin && \
+    ostree container commit
 
-# Finally, install custom local RPMs. Just drop them in the ./rpm folder.
-RUN --mount=type=bind,from=rpm,source=/rpm,target=/rpm \
+# Install custom local RPMs. Just drop them in the ./rpms folder.
+RUN --mount=type=bind,from=rpms,source=/rpms,target=/rpms \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
-    dnf5 install -y --setopt=keepcache=1 /rpm/*
+    dnf5 install -y --setopt=keepcache=1 /rpms/* && \
+    ostree container commit
 
-RUN dnf5 clean all && \
-    find /var/* -maxdepth 0 -type d \! -name cache -exec rm -fr {} \; && \
-    mkdir -p /var/tmp && \
-    chmod -R 1777 /var/tmp && \
+# Clean var folder.
+# Note: There shouldn't be anything in /var/tmp but we can re-create it anyway, like bazzite
+RUN find /var/* -maxdepth 0 -type d \! -name cache -exec rm -fr {} \; && \
+    mkdir -p /var/tmp && chmod -R 1777 /var/tmp && \
     ostree container commit
 
 RUN bootc container lint
