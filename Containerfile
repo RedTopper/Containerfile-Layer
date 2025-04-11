@@ -1,36 +1,53 @@
-FROM scratch AS rpms
+FROM scratch AS rpm
 
-COPY rpms/* /rpms/
+COPY rpm/* /rpm/
 
 FROM ghcr.io/ublue-os/kinoite-nvidia:41
 
-RUN --mount=type=bind,from=rpms,source=/rpms,target=/rpms \
-    --mount=type=cache,dst=/var/cache \
+# Install custom packages and remove firefox (only needed on base images)
+RUN --mount=type=cache,dst=/var/cache \
+    --mount=type=cache,dst=/var/lib/dnf \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
-    # Install custom local RPMs first
-    dnf5 install -y /rpms/* && \
-    # Enable COPRs
+    dnf5 remove -y --setopt=keepcache=1  \
+        firefox firefox-langpacks && \
+    dnf5 install -y --setopt=keepcache=1 \
+        arc-theme \
+        cockpit cockpit-machines cockpit-podman cockpit-selinux \
+        steam steam-devices \
+        monado-vulkan-layers waydroid input-remapper \
+        libi2c-devel lm_sensors libvirt \
+        mono-devel python3-pip flatpak-builder \
+        qdirstat qterminal \
+        zsh && \
+    systemctl enable input-remapper
+
+# Add some packages from bazzite, then disable the COPRs so they don't end up enabled in the image
+# kylegospo/bazzite -> gamescope-session-plus gamescope-session-steam
+# kylegospo/bazzite-multilib -> gamescope (custom build, needs higher priority than fedora build)
+# kylegospo/wallpaper-engine-kde-plugin -> wallpaper-engine-kde-plugin
+RUN --mount=type=cache,dst=/var/cache \
+    --mount=type=cache,dst=/var/lib/dnf \
+    --mount=type=cache,dst=/var/log \
+    --mount=type=tmpfs,dst=/tmp \
     dnf5 -y copr enable kylegospo/bazzite && \
     dnf5 -y copr enable kylegospo/bazzite-multilib && \
     dnf5 -y copr enable kylegospo/wallpaper-engine-kde-plugin && \
-    # Remove firefox (only needed on base images)
-    dnf5 remove -y firefox firefox-langpacks && \
-    # Install custom packages
-    dnf5 install -y \
-      arc-theme wallpaper-engine-kde-plugin \
-      cockpit cockpit-machines cockpit-podman cockpit-selinux \
-      steam steam-devices gamescope gamescope-session-plus gamescope-session-steam \
-      monado-vulkan-layers waydroid input-remapper \
-      libi2c-devel lm_sensors libvirt \
-      mono-devel python3-pip flatpak-builder \
-      qdirstat qterminal \
-      zsh && \
-    # Disable COPRs so they don't end up in the image
+    dnf5 -y config-manager setopt copr:copr.fedorainfracloud.org:kylegospo:bazzite-multilib.priority=98 && \
+    dnf5 install -y --setopt=keepcache=1 \
+        wallpaper-engine-kde-plugin \
+        gamescope gamescope-session-plus gamescope-session-steam && \
     dnf5 -y copr disable kylegospo/bazzite && \
     dnf5 -y copr disable kylegospo/bazzite-multilib && \
-    dnf5 -y copr disable kylegospo/wallpaper-engine-kde-plugin && \
-    systemctl enable input-remapper && \
+    dnf5 -y copr disable kylegospo/wallpaper-engine-kde-plugin
+
+# Finally, install custom local RPMs. Just drop them in the ./rpm folder.
+RUN --mount=type=bind,from=rpm,source=/rpm,target=/rpm \
+    --mount=type=cache,dst=/var/cache \
+    --mount=type=cache,dst=/var/lib/dnf \
+    --mount=type=cache,dst=/var/log \
+    --mount=type=tmpfs,dst=/tmp \
+    dnf5 install -y --setopt=keepcache=1 /rpm/* && \
     echo "OK!"
 
 RUN bootc container lint
